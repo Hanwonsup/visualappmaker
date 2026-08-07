@@ -34,7 +34,8 @@ def init_db():
 def discover_modules():
     MODULE_DIR.mkdir(parents=True, exist_ok=True)
     modules = []
-    for library_path in sorted(MODULE_DIR.glob("*/*/*.so")):
+    library_paths = list(MODULE_DIR.glob("*/*/*.so")) + list(MODULE_DIR.glob("*/*/*.dll")) + list(MODULE_DIR.glob("*/*/*.dylib"))
+    for library_path in sorted(library_paths):
         manifest_path = library_path.with_suffix(".json")
         category = library_path.parent.parent.name
         module_name = library_path.parent.name

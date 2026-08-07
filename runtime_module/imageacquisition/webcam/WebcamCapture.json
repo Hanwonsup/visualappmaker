@@ -2,10 +2,12 @@
   "kind": "source",
   "label": "웹캠 캡처",
   "icon": "◉",
-  "subtitle": "C++ SO · 이미지 프레임 소스",
-  "entryPoint": "FillWebcamFrameRGBA",
+  "subtitle": "OpenCV · 선택 가능한 카메라 영상 소스",
+  "entryPoint": "CaptureWebcamFrameRGBA",
   "inputs": 0,
   "outputs": 1,
   "outputFormat": "RGBA 이미지",
-  "build": "g++ -std=c++17 -O2 -fPIC -shared WebcamCapture.cpp -o WebcamCapture.so"
+  "deviceEnumeration": "GetWebcamDeviceCount / GetWebcamDeviceIndex",
+  "platforms": ["Linux (V4L2)", "Windows (DirectShow)"],
+  "build": "cmake -S . -B build && cmake --build build --config Release"
 }
