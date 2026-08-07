@@ -45,8 +45,8 @@ export default function ModuleLibrary({ onAdd }: { onAdd: (item: ModuleItem) => 
       {group.items.map(item => <button className={`module-card ${item.type}`} key={`${item.label}-${item.dllName || ''}`} onClick={() => onAdd(item)}>
         <span className="module-icon">{item.icon}</span><span><strong>{item.label}</strong><small>{item.subtitle}</small></span><b>＋</b>
       </button>)}
-      {(group.title === 'C++ 처리 모듈' || group.title === 'C++ 시작 모듈') && detected.length > 0 && <p className="module-scan">● 실행 폴더에서 {detected.length}개 SO 모듈 감지</p>}
-      {group.title === 'C++ 처리 모듈' && scanError && <p className="module-scan error">SO 모듈 목록을 확인할 수 없습니다.</p>}
+      {(group.title === 'C++ 처리 모듈' || group.title === 'C++ 시작 모듈') && detected.length > 0 && <p className="module-scan">● 실행 폴더에서 {detected.length}개 네이티브 모듈 감지</p>}
+      {group.title === 'C++ 처리 모듈' && scanError && <p className="module-scan error">네이티브 모듈 목록을 확인할 수 없습니다.</p>}
     </section>)}
     <p className="library-help">모듈 JSON의 inputTypes·outputTypes에 Image, Number, Text 또는 배열형(Image[])을 적어 데이터 연결 규칙을 설정할 수 있습니다.</p>
   </aside>

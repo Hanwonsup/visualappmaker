@@ -34,11 +34,23 @@ def init_db():
 def discover_modules():
     MODULE_DIR.mkdir(parents=True, exist_ok=True)
     modules = []
-    library_paths = list(MODULE_DIR.glob("*/*/*.so")) + list(MODULE_DIR.glob("*/*/*.dll")) + list(MODULE_DIR.glob("*/*/*.dylib"))
-    for library_path in sorted(library_paths):
-        manifest_path = library_path.with_suffix(".json")
-        category = library_path.parent.parent.name
-        module_name = library_path.parent.name
+    # Windows Visual Studio builds can retain binaries inside configuration folders
+    # (for example Release/ or x64/Release/), so search all module descendants.
+    extensions = {".so", ".dll", ".dylib"}
+    library_paths = sorted(path for path in MODULE_DIR.rglob("*") if path.is_file() and path.suffix.lower() in extensions)
+    seen_modules = set()
+    for library_path in library_paths:
+        module_root = next((parent for parent in [library_path.parent, *library_path.parents]
+                            if parent.parent.parent == MODULE_DIR), library_path.parent)
+        category = module_root.parent.name
+        module_name = module_root.name
+        module_key = (category, module_name, library_path.stem.lower())
+        if module_key in seen_modules:
+            continue
+        seen_modules.add(module_key)
+        manifest_path = module_root / f"{library_path.stem}.json"
+        if not manifest_path.exists():
+            manifest_path = library_path.with_suffix(".json")
         data = {"kind": "process", "label": library_path.stem, "icon": "✦", "subtitle": "감지된 C++ 공유 라이브러리", "entryPoint": "Process", "inputs": 1, "outputs": 1}
         if manifest_path.exists():
             try:
@@ -51,6 +63,7 @@ def discover_modules():
             "icon": str(data.get("icon", "✦")), "subtitle": str(data.get("subtitle", "감지된 C++ 공유 라이브러리")),
             "kind": str(data.get("kind", "process")),
             "dllName": library_path.name, "libraryPath": str(library_path.relative_to(MODULE_DIR)),
+            "modulePath": str(module_root.relative_to(MODULE_DIR)),
             "category": category, "moduleName": module_name,
             "entryPoint": str(data.get("entryPoint", "Process")),
             "inputs": int(data.get("inputs", 1)), "outputs": int(data.get("outputs", 1)),
