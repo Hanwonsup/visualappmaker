@@ -23,6 +23,12 @@ def init_db():
             graph TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS runtime_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""")
         count = conn.execute("SELECT COUNT(*) AS c FROM projects").fetchone()["c"]
         if count == 0:
             graph = json.dumps({"nodes": [], "connections": []}, ensure_ascii=False)
@@ -33,6 +39,10 @@ def init_db():
 class ProjectPayload(BaseModel):
     name: str
     graph: dict
+
+
+class RuntimeEventPayload(BaseModel):
+    message: str
 
 
 app = FastAPI()
@@ -61,3 +71,21 @@ def save_project(project_id: int, payload: ProjectPayload):
         conn.execute("UPDATE projects SET name = ?, graph = ?, updated_at = ? WHERE id = ?",
                      (payload.name.strip() or "이름 없는 실험", json.dumps(payload.graph, ensure_ascii=False), updated, project_id))
     return {"ok": True, "updated_at": updated}
+
+
+@app.get("/api/projects/{project_id}/runtime-events")
+def runtime_events(project_id: int):
+    with get_db() as conn:
+        rows = conn.execute("SELECT message, created_at FROM runtime_events WHERE project_id = ? ORDER BY id DESC LIMIT 30", (project_id,)).fetchall()
+    return [{"message": row["message"], "created_at": row["created_at"]} for row in reversed(rows)]
+
+
+@app.post("/api/projects/{project_id}/runtime-events")
+def create_runtime_event(project_id: int, payload: RuntimeEventPayload):
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="실행 기록이 필요합니다.")
+    created_at = datetime.now().isoformat(timespec="seconds")
+    with get_db() as conn:
+        conn.execute("INSERT INTO runtime_events (project_id, message, created_at) VALUES (?, ?, ?)", (project_id, message, created_at))
+    return {"ok": True, "created_at": created_at}
