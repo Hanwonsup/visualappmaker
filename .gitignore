@@ -12,3 +12,8 @@ data/
 *.sqlite
 *.sqlite3
 *.log
+
+# Native runtime build outputs (keep C++ sources and module manifests in Git)
+*.so
+*.dll
+*.dylib
