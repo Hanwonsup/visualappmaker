@@ -1,0 +1,8 @@
+{
+  "label": "이미지 합성기",
+  "icon": "◫",
+  "subtitle": "입력 이미지 2개 · 합성 이미지 1개",
+  "entryPoint": "ComposeImagesRGBA",
+  "inputs": 2,
+  "outputs": 1
+}
