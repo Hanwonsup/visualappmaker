@@ -3,84 +3,112 @@ import type { ModuleType } from './ModuleLibrary'
 export type NodeData = { id: string; type: ModuleType; title: string; detail: string; icon: string; x: number; y: number; setting?: string; dllName?: string; entryPoint?: string; inputs?: number; outputs?: number }
 export type Link = { from: string; to: string }
 const colors: Record<ModuleType, string> = { input: '#47a7ff', process: '#f5a54b', output: '#a98cff' }
-function Port({ side, active = false }: { side: 'in' | 'out'; active?: boolean }) {
-  return <span className={`port ${side} ${active ? 'active' : ''}`} aria-hidden="true" />
-}
+const NODE_WIDTH = 173
+const PORT_Y = 60
+
+type Connecting = { from: string; x: number; y: number } | null
+
 export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink, onRemoveLink, onMoveNode, onUpdateSetting, onUpdateRuntime }: {
   nodes: NodeData[]; links: Link[]; selected: string | null; onSelect: (id: string) => void; onAddLink: (from: string, to: string) => void; onRemoveLink: (from: string, to: string) => void; onMoveNode: (id: string, x: number, y: number) => void; onUpdateSetting: (id: string, setting: string) => void; onUpdateRuntime: (id: string, field: 'dllName' | 'entryPoint', value: string) => void
 }) {
-  const [linkStart, setLinkStart] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null)
+  const [connecting, setConnecting] = useState<Connecting>(null)
   const selectedNode = nodes.find(node => node.id === selected)
+
+  const canvasPoint = (event: PointerEvent | globalThis.PointerEvent) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const bounds = canvas.getBoundingClientRect()
+    return { x: event.clientX - bounds.left + canvas.scrollLeft, y: event.clientY - bounds.top + canvas.scrollTop }
+  }
+
   const startDrag = (event: PointerEvent<HTMLElement>, node: NodeData) => {
     if ((event.target as HTMLElement).closest('button, input')) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const bounds = canvas.getBoundingClientRect()
-    dragRef.current = { id: node.id, offsetX: event.clientX - bounds.left + canvas.scrollLeft - node.x, offsetY: event.clientY - bounds.top + canvas.scrollTop - node.y }
-    window.addEventListener('pointermove', moveDrag)
-    window.addEventListener('pointerup', endDrag, { once: true })
+    const point = canvasPoint(event)
+    dragRef.current = { id: node.id, offsetX: point.x - node.x, offsetY: point.y - node.y }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
     onSelect(node.id)
     event.preventDefault()
   }
-  const moveDrag = (event: PointerEvent) => {
+
+  const movePointer = (event: PointerEvent<HTMLDivElement>) => {
+    const point = canvasPoint(event)
     const drag = dragRef.current
-    const canvas = canvasRef.current
-    if (!drag || !canvas) return
-    const bounds = canvas.getBoundingClientRect()
-    const x = Math.max(12, event.clientX - bounds.left + canvas.scrollLeft - drag.offsetX)
-    const y = Math.max(12, event.clientY - bounds.top + canvas.scrollTop - drag.offsetY)
-    onMoveNode(drag.id, Math.round(x), Math.round(y))
+    if (drag) onMoveNode(drag.id, Math.max(12, Math.round(point.x - drag.offsetX)), Math.max(12, Math.round(point.y - drag.offsetY)))
+    if (connecting) setConnecting(current => current ? { ...current, x: point.x, y: point.y } : null)
   }
-  const endDrag = () => {
+
+  const finishPointer = () => {
     dragRef.current = null
-    window.removeEventListener('pointermove', moveDrag)
   }
-  const startConnection = (id: string) => {
-    setLinkStart(id)
-    onSelect(id)
+
+  const startConnection = (event: PointerEvent<HTMLButtonElement>, node: NodeData) => {
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    const point = canvasPoint(event)
+    setConnecting({ from: node.id, x: point.x, y: point.y })
+    onSelect(node.id)
   }
-  const finishConnection = (id: string) => {
-    if (!linkStart) return
-    if (linkStart !== id && !links.some(link => link.from === linkStart && link.to === id)) onAddLink(linkStart, id)
-    setLinkStart(null)
+
+  const finishConnection = (event: PointerEvent<HTMLButtonElement>, targetId: string) => {
+    event.stopPropagation()
+    const from = connecting?.from
+    if (from && from !== targetId && !links.some(link => link.from === from && link.to === targetId)) onAddLink(from, targetId)
+    setConnecting(null)
   }
+
+  const cancelConnection = () => setConnecting(null)
   const removeConnection = (from: string, to: string) => {
     onRemoveLink(from, to)
-    setLinkStart(null)
+    cancelConnection()
   }
+
+  const wirePath = (fromX: number, fromY: number, toX: number, toY: number) => `M ${fromX} ${fromY} C ${fromX + 82} ${fromY}, ${toX - 82} ${toY}, ${toX} ${toY}`
+
   return <section className="canvas-wrap" aria-label="노드 작업 공간">
-    <div className="canvas-toolbar"><span className="breadcrumb">작업 공간 <i>/</i> 네이티브 처리 파이프라인</span><span className="connect-hint">{linkStart ? '연결할 대상의 입력 포트를 선택하세요' : '노드 제목을 드래그해 이동하고, 출력 포트에서 입력 포트로 연결하세요'}</span><div><button className="tool-button" onClick={() => setLinkStart(null)} title="연결 취소">×</button></div></div>
-    <div className="node-canvas" ref={canvasRef} onPointerDown={(event) => { if (event.target === event.currentTarget) onSelect('') }}>
+    <div className="canvas-toolbar"><span className="breadcrumb">작업 공간 <i>/</i> 네이티브 처리 파이프라인</span><span className="connect-hint">{connecting ? '입력 핀 위에서 마우스를 놓아 연결하세요' : '노드 제목을 드래그해 이동하고, 출력 핀을 입력 핀까지 끌어 연결하세요'}</span><div><button className="tool-button" onClick={cancelConnection} title="연결 취소">×</button></div></div>
+    <div className="node-canvas" ref={canvasRef} onPointerMove={movePointer} onPointerUp={finishPointer} onPointerCancel={() => { finishPointer(); cancelConnection() }} onPointerDown={(event) => { if (event.target === event.currentTarget) { onSelect(''); cancelConnection() } }}>
       <svg className="wires" viewBox="0 0 900 600" preserveAspectRatio="none" aria-hidden="true">
-        {links.map(link => { const a = nodes.find(n => n.id === link.from); const b = nodes.find(n => n.id === link.to); if (!a || !b) return null; return <path key={`${link.from}-${link.to}`} d={`M ${a.x + 172} ${a.y + 60} C ${a.x + 255} ${a.y + 60}, ${b.x - 76} ${b.y + 60}, ${b.x} ${b.y + 60}`} stroke={colors[a.type]} /> })}
+        {links.map(link => {
+          const a = nodes.find(node => node.id === link.from)
+          const b = nodes.find(node => node.id === link.to)
+          if (!a || !b) return null
+          return <path key={`${link.from}-${link.to}`} d={wirePath(a.x + NODE_WIDTH, a.y + PORT_Y, b.x, b.y + PORT_Y)} stroke={colors[a.type]} />
+        })}
+        {connecting && (() => {
+          const source = nodes.find(node => node.id === connecting.from)
+          return source ? <path className="pending-wire" d={wirePath(source.x + NODE_WIDTH, source.y + PORT_Y, connecting.x, connecting.y)} stroke={colors[source.type]} /> : null
+        })()}
       </svg>
       {nodes.map(node => {
         const inputCount = node.inputs || 1
-        const inputPorts = Array.from({ length: inputCount }, (_, index) => index)
         return <article className={`flow-node ${node.type} ${selected === node.id ? 'selected' : ''}`} key={node.id} style={{ left: `${node.x}px`, top: `${node.y}px` }} onClick={() => onSelect(node.id)}>
-          {node.type !== 'input' && inputPorts.map(index => <span className="input-port-wrap" style={{ top: `${index === 0 ? 55 : 76}px` }} key={index}><Port side="in" active={links.some(l => l.to === node.id)} /><button className="node-link input-link" onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); finishConnection(node.id) }} aria-label={`${node.title} 입력 ${index + 1} 연결`}>●</button>{inputCount > 1 && <small className="port-label">입력 {index + 1}</small>}</span>)}
-          <header onPointerDown={(event) => startDrag(event, node)}><span className="node-type-icon">{node.icon}</span><span><strong>{node.title}</strong><small>{node.detail}</small></span><button className="more" aria-label="노드 메뉴">⋮</button></header>
+          {node.type !== 'input' && Array.from({ length: inputCount }, (_, index) => {
+            const top = index === 0 ? 55 : 76
+            return <button className={`port-button input-pin ${connecting ? 'connection-target' : ''}`} style={{ top: `${top}px` }} key={index} onPointerUp={event => finishConnection(event, node.id)} onPointerDown={event => event.stopPropagation()} aria-label={`${node.title} 입력 ${index + 1}`}>{inputCount > 1 && <small>입력 {index + 1}</small>}</button>
+          })}
+          <header onPointerDown={event => startDrag(event, node)}><span className="node-type-icon">{node.icon}</span><span><strong>{node.title}</strong><small>{node.detail}</small></span><button className="more" aria-label="노드 메뉴">⋮</button></header>
           <div className="node-body">{node.type === 'input' ? <><span className="stream-dot" />내장 예시 데이터</> : node.type === 'process' ? <><span className="native-badge">C++ SO</span><b>{node.inputs ? `입력 ${node.inputs} · 출력 ${node.outputs || 1}` : node.setting || '0.65'}</b></> : <><span>웹 GUI</span><b className="ready">준비됨</b></>}</div>
-          {node.type !== 'output' && <><Port side="out" active={links.some(l => l.from === node.id)} /><button className={`node-link output-link ${linkStart === node.id ? 'connecting' : ''}`} onPointerDown={e => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); startConnection(node.id) }} aria-label={`${node.title} 출력 연결 시작`}>●</button></>}
+          {node.type !== 'output' && <button className={`port-button output-pin ${connecting?.from === node.id ? 'connecting' : ''}`} onPointerDown={event => startConnection(event, node)} aria-label={`${node.title} 출력 핀`}>출력</button>}
         </article>
       })}
       {selectedNode && <aside className="inspector">
         <div className="inspector-title"><span>속성</span><button onClick={() => onSelect('')}>×</button></div>
         <label>노드 이름<input value={selectedNode.title} readOnly /></label>
         {selectedNode.type === 'process' && <>
-          <label>인식 기준<input value={selectedNode.setting || '0.65'} onChange={e => onUpdateSetting(selectedNode.id, e.target.value)} /></label>
-          <label>SO 모듈<input value={selectedNode.dllName || ''} placeholder="예: engine.so" onChange={e => onUpdateRuntime(selectedNode.id, 'dllName', e.target.value)} /></label>
-          <label>진입 함수<input value={selectedNode.entryPoint || ''} placeholder="예: ProcessFrame" onChange={e => onUpdateRuntime(selectedNode.id, 'entryPoint', e.target.value)} /></label>
+          <label>인식 기준<input value={selectedNode.setting || '0.65'} onChange={event => onUpdateSetting(selectedNode.id, event.target.value)} /></label>
+          <label>SO 모듈<input value={selectedNode.dllName || ''} placeholder="예: engine.so" onChange={event => onUpdateRuntime(selectedNode.id, 'dllName', event.target.value)} /></label>
+          <label>진입 함수<input value={selectedNode.entryPoint || ''} placeholder="예: ProcessFrame" onChange={event => onUpdateRuntime(selectedNode.id, 'entryPoint', event.target.value)} /></label>
         </>}
-        <p>연결을 바꾸려면 아래 버튼으로 기존 연결을 삭제한 뒤, 출력 포트와 입력 포트를 차례로 선택하세요.</p>
+        <p>연결선은 출력 핀에서 대상 노드의 입력 핀까지 드래그해 새로 만들 수 있습니다.</p>
         {links.filter(link => link.from === selectedNode.id || link.to === selectedNode.id).map(link => <button className="remove-link" key={`${link.from}-${link.to}`} onClick={() => removeConnection(link.from, link.to)}>연결 삭제</button>)}
       </aside>}
       {!nodes.length && <div className="empty-canvas"><b>작업 공간이 비어 있습니다</b><span>왼쪽 라이브러리에서 모듈을 선택해 실험을 시작하세요.</span></div>}
     </div>
   </section>
 }
+
 export const initialNodes: NodeData[] = [
   { id: 'camera', type: 'input', title: '예시 카메라', detail: '내장 이미지 스트림', icon: '◉', x: 55, y: 175 },
   { id: 'detect', type: 'process', title: '사람 인식', detail: '네이티브 SO · 객체 탐지', icon: '◌', x: 320, y: 175, setting: '0.65', dllName: 'person_detector.so', entryPoint: 'DetectPeople' },
