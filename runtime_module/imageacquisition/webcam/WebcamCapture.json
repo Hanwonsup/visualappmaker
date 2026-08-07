@@ -6,6 +6,7 @@
   "entryPoint": "CaptureWebcamFrameRGBA",
   "inputs": 0,
   "outputs": 1,
+  "outputTypes": ["Image"],
   "outputFormat": "RGBA 이미지",
   "deviceEnumeration": "GetWebcamDeviceCount / GetWebcamDeviceIndex",
   "platforms": ["Linux (V4L2)", "Windows (DirectShow)"],

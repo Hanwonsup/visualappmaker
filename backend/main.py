@@ -53,7 +53,9 @@ def discover_modules():
             "dllName": library_path.name, "libraryPath": str(library_path.relative_to(MODULE_DIR)),
             "category": category, "moduleName": module_name,
             "entryPoint": str(data.get("entryPoint", "Process")),
-            "inputs": int(data.get("inputs", 1)), "outputs": int(data.get("outputs", 1)), 
+            "inputs": int(data.get("inputs", 1)), "outputs": int(data.get("outputs", 1)),
+            "inputTypes": data.get("inputTypes", ["Image"] * int(data.get("inputs", 1))),
+            "outputTypes": data.get("outputTypes", ["Image"] * int(data.get("outputs", 1))),
         })
     return modules
 class ProjectPayload(BaseModel):

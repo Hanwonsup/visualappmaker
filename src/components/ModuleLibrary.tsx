@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 export type ModuleType = 'input' | 'source' | 'process' | 'output'
-export type ModuleItem = { type: ModuleType; label: string; icon: string; subtitle: string; dllName?: string; entryPoint?: string; inputs?: number; outputs?: number; kind?: string }
+export type DataType = 'Image' | 'Number' | 'Text' | 'Image[]' | 'Number[]' | 'Text[]'
+export type ModuleItem = {
+  type: ModuleType; label: string; icon: string; subtitle: string; dllName?: string; entryPoint?: string
+  inputs?: number; outputs?: number; inputTypes?: DataType[]; outputTypes?: DataType[]; kind?: string
+}
 const groups: { title: string; items: ModuleItem[] }[] = [
   { title: '입력 모듈', items: [
-    { type: 'input', label: '예시 카메라', icon: '◉', subtitle: '내장 이미지 스트림' },
-    { type: 'input', label: '깊이 센서', icon: '◇', subtitle: '3D 깊이 프레임' },
-    { type: 'input', label: '센서 데이터', icon: '⌁', subtitle: '실시간 수치 입력' },
+    { type: 'input', label: '예시 카메라', icon: '◉', subtitle: '내장 이미지 스트림', outputs: 1, outputTypes: ['Image'] },
+    { type: 'input', label: '깊이 센서', icon: '◇', subtitle: '3D 깊이 프레임', outputs: 1, outputTypes: ['Image'] },
+    { type: 'input', label: '센서 데이터', icon: '⌁', subtitle: '실시간 수치 입력', outputs: 1, outputTypes: ['Number'] },
   ]},
   { title: 'C++ 처리 모듈', items: [
-    { type: 'process', label: '이미지 전처리', icon: '✦', subtitle: '네이티브 DLL · 밝기 보정', dllName: 'image_preprocess.dll', entryPoint: 'ProcessFrame' },
-    { type: 'process', label: '사람 인식', icon: '◌', subtitle: '네이티브 DLL · 객체 탐지', dllName: 'person_detector.dll', entryPoint: 'DetectPeople' },
-    { type: 'process', label: '통계 계산', icon: '∑', subtitle: '네이티브 DLL · 변화 분석', dllName: 'stats_engine.dll', entryPoint: 'Aggregate' },
+    { type: 'process', label: '이미지 전처리', icon: '✦', subtitle: '네이티브 SO · 밝기 보정', dllName: 'image_preprocess.so', entryPoint: 'ProcessFrame', inputs: 1, outputs: 1, inputTypes: ['Image'], outputTypes: ['Image'] },
+    { type: 'process', label: '사람 인식', icon: '◌', subtitle: '네이티브 SO · 객체 탐지', dllName: 'person_detector.so', entryPoint: 'DetectPeople', inputs: 1, outputs: 2, inputTypes: ['Image'], outputTypes: ['Image', 'Number'] },
+    { type: 'process', label: '통계 계산', icon: '∑', subtitle: '네이티브 SO · 변화 분석', dllName: 'stats_engine.so', entryPoint: 'Aggregate', inputs: 1, outputs: 1, inputTypes: ['Number[]'], outputTypes: ['Number'] },
   ]},
   { title: '출력 모듈', items: [
-    { type: 'output', label: '이미지 뷰어', icon: '▣', subtitle: '웹 GUI · 2D 결과 화면' },
-    { type: 'output', label: '값 표시', icon: '№', subtitle: '웹 GUI · 실시간 숫자 출력' },
-    { type: 'output', label: '3D 뷰어', icon: '◈', subtitle: '웹 GUI · 깊이 데이터 확인' },
+    { type: 'output', label: '이미지 뷰어', icon: '▣', subtitle: '웹 GUI · 2D 결과 화면', inputs: 1, inputTypes: ['Image'] },
+    { type: 'output', label: '값 표시', icon: '№', subtitle: '웹 GUI · 실시간 숫자 출력', inputs: 1, inputTypes: ['Number'] },
+    { type: 'output', label: '3D 뷰어', icon: '◈', subtitle: '웹 GUI · 깊이 데이터 확인', inputs: 1, inputTypes: ['Image'] },
   ]},
 ]
 export default function ModuleLibrary({ onAdd }: { onAdd: (item: ModuleItem) => void }) {
@@ -32,9 +36,7 @@ export default function ModuleLibrary({ onAdd }: { onAdd: (item: ModuleItem) => 
   const detectedProcessors = detected.filter(item => item.type === 'process')
   const displayGroups = [
     ...(detectedSources.length ? [{ title: 'C++ 시작 모듈', items: detectedSources }] : []),
-    ...groups.map(group => group.title === 'C++ 처리 모듈'
-      ? { ...group, items: [...detectedProcessors, ...group.items] }
-      : group),
+    ...groups.map(group => group.title === 'C++ 처리 모듈' ? { ...group, items: [...detectedProcessors, ...group.items] } : group),
   ]
   return <aside className="module-library" aria-label="모듈 선택 영역">
     <div className="panel-heading"><span>모듈 라이브러리</span><button className="icon-button" aria-label="모듈 검색">⌕</button></div>
@@ -46,6 +48,6 @@ export default function ModuleLibrary({ onAdd }: { onAdd: (item: ModuleItem) => 
       {(group.title === 'C++ 처리 모듈' || group.title === 'C++ 시작 모듈') && detected.length > 0 && <p className="module-scan">● 실행 폴더에서 {detected.length}개 SO 모듈 감지</p>}
       {group.title === 'C++ 처리 모듈' && scanError && <p className="module-scan error">SO 모듈 목록을 확인할 수 없습니다.</p>}
     </section>)}
-    <p className="library-help">실행 폴더의 SO 파일과 같은 이름의 JSON 설명 파일을 함께 두면 자동 감지됩니다. 입력 수가 0인 C++ 모듈은 시작 모듈로 표시됩니다.</p>
+    <p className="library-help">모듈 JSON의 inputTypes·outputTypes에 Image, Number, Text 또는 배열형(Image[])을 적어 데이터 연결 규칙을 설정할 수 있습니다.</p>
   </aside>
 }
