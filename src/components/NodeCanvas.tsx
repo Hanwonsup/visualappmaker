@@ -88,7 +88,14 @@ export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink
           <label>진입 함수<input value={selectedNode.entryPoint || ''} placeholder="예: ProcessFrame" onChange={event => onUpdateRuntime(selectedNode.id, 'entryPoint', event.target.value)} /></label>
         </>}
         <p>각 입력 핀은 별도로 연결됩니다. 이미지 합성기의 입력 1과 입력 2에 각각 다른 이미지를 연결할 수 있습니다.</p>
-        {links.filter(link => link.from === selectedNode.id || link.to === selectedNode.id).map(link => <button className="remove-link" key={`${link.from}-${link.to}-${link.toPort || 0}`} onClick={() => removeConnection(link.from, link.to, link.toPort)}>연결 삭제{link.to === selectedNode.id ? ` · 입력 ${(link.toPort || 0) + 1}` : ''}</button>)}
+        {links.filter(link => link.from === selectedNode.id || link.to === selectedNode.id).map(link => {
+          const sourceNode = nodes.find(node => node.id === link.from)
+          const targetNode = nodes.find(node => node.id === link.to)
+          const inputLabel = `입력 ${(link.toPort || 0) + 1}`
+          return <button className="remove-link" key={`${link.from}-${link.to}-${link.toPort || 0}`} onClick={() => removeConnection(link.from, link.to, link.toPort)}>
+            연결 삭제 · {sourceNode?.title || '알 수 없는 노드'} → {targetNode?.title || '알 수 없는 노드'} ({inputLabel})
+          </button>
+        })}
         <button className="remove-node" onClick={() => onRemoveNode(selectedNode.id)}>이 노드 삭제</button>
       </aside>}
       {!nodes.length && <div className="empty-canvas"><b>작업 공간이 비어 있습니다</b><span>왼쪽 라이브러리에서 모듈을 선택해 실험을 시작하세요.</span></div>}
