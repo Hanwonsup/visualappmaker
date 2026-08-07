@@ -1,11 +1,15 @@
-// Linux shared-library example: accepts two RGBA images of equal dimensions and blends them.
-// Place this source at runtime_module/imageprocessing/imagecomposer/.
-// Build from this directory:
-// g++ -std=c++17 -O2 -fPIC -shared ImageComposer.cpp -o ImageComposer.so
-// Keep ImageComposer.so next to ImageComposer.json so the application can discover it.
+// Cross-platform shared-library example: accepts two RGBA images of equal dimensions and blends them.
+// Build the whole project from the repository root with CMake.
+// Linux exports a .so file and Windows exports a .dll file.
 #include <algorithm>
 #include <cstdint>
+
+// Windows/MSVC uses __declspec(dllexport); GCC/Clang use visibility attributes.
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define MODULE_API extern "C" __declspec(dllexport)
+#else
 #define MODULE_API extern "C" __attribute__((visibility("default")))
+#endif
 // inputA/inputB/output are width * height * 4 byte RGBA buffers.
 // alpha: 0.0 uses A only, 1.0 uses B only. Returns 0 on success.
 MODULE_API int ComposeImagesRGBA(
