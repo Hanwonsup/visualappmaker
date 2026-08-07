@@ -1,0 +1,11 @@
+{
+  "kind": "source",
+  "label": "웹캠 캡처",
+  "icon": "◉",
+  "subtitle": "C++ SO · 이미지 프레임 소스",
+  "entryPoint": "FillWebcamFrameRGBA",
+  "inputs": 0,
+  "outputs": 1,
+  "outputFormat": "RGBA 이미지",
+  "build": "g++ -std=c++17 -O2 -fPIC -shared WebcamCapture.cpp -o WebcamCapture.so"
+}

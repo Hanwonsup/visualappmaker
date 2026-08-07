@@ -2,7 +2,7 @@ import { PointerEvent, useRef, useState } from 'react'
 import type { ModuleType } from './ModuleLibrary'
 export type NodeData = { id: string; type: ModuleType; title: string; detail: string; icon: string; x: number; y: number; setting?: string; dllName?: string; entryPoint?: string; inputs?: number; outputs?: number }
 export type Link = { from: string; to: string; toPort?: number }
-const colors: Record<ModuleType, string> = { input: '#47a7ff', process: '#f5a54b', output: '#a98cff' }
+const colors: Record<ModuleType, string> = { input: '#47a7ff', source: '#47a7ff', process: '#f5a54b', output: '#a98cff' }
 const NODE_WIDTH = 173
 const PORT_Y = 60
 const inputPortY = (index: number) => index === 0 ? 60 : 81
@@ -71,12 +71,13 @@ export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink
         })()}
       </svg>
       {nodes.map(node => {
-        const inputCount = node.inputs || 1
+        const inputCount = node.inputs ?? (node.type === 'input' || node.type === 'source' ? 0 : 1)
+        const outputCount = node.outputs ?? (node.type === 'output' ? 0 : 1)
         return <article className={`flow-node ${node.type} ${selected === node.id ? 'selected' : ''}`} key={node.id} style={{ left: `${node.x}px`, top: `${node.y}px` }} onClick={() => onSelect(node.id)}>
-          {node.type !== 'input' && Array.from({ length: inputCount }, (_, index) => <button className={`port-button input-pin ${connecting ? 'connection-target' : ''}`} style={{ top: `${inputPortY(index) - 5}px` }} key={index} onPointerUp={event => finishConnection(event, node.id, index)} onPointerDown={event => event.stopPropagation()} aria-label={`${node.title} 입력 ${index + 1}`}>{inputCount > 1 && <small>입력 {index + 1}</small>}</button>)}
+          {inputCount > 0 && Array.from({ length: inputCount }, (_, index) => <button className={`port-button input-pin ${connecting ? 'connection-target' : ''}`} style={{ top: `${inputPortY(index) - 5}px` }} key={index} onPointerUp={event => finishConnection(event, node.id, index)} onPointerDown={event => event.stopPropagation()} aria-label={`${node.title} 입력 ${index + 1}`}>{inputCount > 1 && <small>입력 {index + 1}</small>}</button>)}
           <header onPointerDown={event => startDrag(event, node)}><span className="node-type-icon">{node.icon}</span><span><strong>{node.title}</strong><small>{node.detail}</small></span><button className="more" aria-label="노드 메뉴">⋮</button></header>
-          <div className="node-body">{node.type === 'input' ? <><span className="stream-dot" />내장 예시 데이터</> : node.type === 'process' ? <><span className="native-badge">C++ SO</span><b>{node.inputs ? `입력 ${node.inputs} · 출력 ${node.outputs || 1}` : node.setting || '0.65'}</b></> : <><span>웹 GUI</span><b className="ready">준비됨</b></>}</div>
-          {node.type !== 'output' && <button className={`port-button output-pin ${connecting?.from === node.id ? 'connecting' : ''}`} onPointerDown={event => startConnection(event, node)} aria-label={`${node.title} 출력 핀`}>출력</button>}
+          <div className="node-body">{node.type === 'input' ? <><span className="stream-dot" />내장 예시 데이터</> : node.type === 'source' ? <><span className="native-badge">C++ SO</span><b>시작 · 출력 {outputCount}</b></> : node.type === 'process' ? <><span className="native-badge">C++ SO</span><b>{node.inputs !== undefined ? `입력 ${node.inputs} · 출력 ${node.outputs || 1}` : node.setting || '0.65'}</b></> : <><span>웹 GUI</span><b className="ready">준비됨</b></>}</div>
+          {outputCount > 0 && <button className={`port-button output-pin ${connecting?.from === node.id ? 'connecting' : ''}`} onPointerDown={event => startConnection(event, node)} aria-label={`${node.title} 출력 핀`}>출력</button>}
         </article>
       })}
       {selectedNode && <aside className="inspector">

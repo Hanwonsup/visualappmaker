@@ -38,15 +38,17 @@ def discover_modules():
         manifest_path = library_path.with_suffix(".json")
         category = library_path.parent.parent.name
         module_name = library_path.parent.name
-        data = {"label": library_path.stem, "icon": "✦", "subtitle": "감지된 C++ 공유 라이브러리", "entryPoint": "Process"}
+        data = {"kind": "process", "label": library_path.stem, "icon": "✦", "subtitle": "감지된 C++ 공유 라이브러리", "entryPoint": "Process", "inputs": 1, "outputs": 1}
         if manifest_path.exists():
             try:
                 data.update(json.loads(manifest_path.read_text(encoding="utf-8")))
             except (OSError, json.JSONDecodeError):
                 data["subtitle"] = "설명 파일을 읽을 수 없는 C++ 공유 라이브러리"
         modules.append({
-            "type": "process", "label": str(data.get("label", library_path.stem)),
+            "type": "source" if str(data.get("kind", "process")) == "source" or int(data.get("inputs", 1)) == 0 else "process",
+            "label": str(data.get("label", library_path.stem)),
             "icon": str(data.get("icon", "✦")), "subtitle": str(data.get("subtitle", "감지된 C++ 공유 라이브러리")),
+            "kind": str(data.get("kind", "process")),
             "dllName": library_path.name, "libraryPath": str(library_path.relative_to(MODULE_DIR)),
             "category": category, "moduleName": module_name,
             "entryPoint": str(data.get("entryPoint", "Process")),
