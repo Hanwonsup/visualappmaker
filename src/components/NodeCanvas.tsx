@@ -6,10 +6,9 @@ const colors: Record<ModuleType, string> = { input: '#47a7ff', process: '#f5a54b
 const NODE_WIDTH = 173
 const PORT_Y = 60
 const inputPortY = (index: number) => index === 0 ? 60 : 81
-
 type Connecting = { from: string; x: number; y: number } | null
-export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink, onRemoveLink, onMoveNode, onUpdateSetting, onUpdateRuntime }: {
-  nodes: NodeData[]; links: Link[]; selected: string | null; onSelect: (id: string) => void; onAddLink: (from: string, to: string, toPort: number) => void; onRemoveLink: (from: string, to: string, toPort?: number) => void; onMoveNode: (id: string, x: number, y: number) => void; onUpdateSetting: (id: string, setting: string) => void; onUpdateRuntime: (id: string, field: 'dllName' | 'entryPoint', value: string) => void
+export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink, onRemoveLink, onMoveNode, onRemoveNode, onUpdateSetting, onUpdateRuntime }: {
+  nodes: NodeData[]; links: Link[]; selected: string | null; onSelect: (id: string) => void; onAddLink: (from: string, to: string, toPort: number) => void; onRemoveLink: (from: string, to: string, toPort?: number) => void; onMoveNode: (id: string, x: number, y: number) => void; onRemoveNode: (id: string) => void; onUpdateSetting: (id: string, setting: string) => void; onUpdateRuntime: (id: string, field: 'dllName' | 'entryPoint', value: string) => void
 }) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null)
@@ -90,6 +89,7 @@ export default function NodeCanvas({ nodes, links, selected, onSelect, onAddLink
         </>}
         <p>각 입력 핀은 별도로 연결됩니다. 이미지 합성기의 입력 1과 입력 2에 각각 다른 이미지를 연결할 수 있습니다.</p>
         {links.filter(link => link.from === selectedNode.id || link.to === selectedNode.id).map(link => <button className="remove-link" key={`${link.from}-${link.to}-${link.toPort || 0}`} onClick={() => removeConnection(link.from, link.to, link.toPort)}>연결 삭제{link.to === selectedNode.id ? ` · 입력 ${(link.toPort || 0) + 1}` : ''}</button>)}
+        <button className="remove-node" onClick={() => onRemoveNode(selectedNode.id)}>이 노드 삭제</button>
       </aside>}
       {!nodes.length && <div className="empty-canvas"><b>작업 공간이 비어 있습니다</b><span>왼쪽 라이브러리에서 모듈을 선택해 실험을 시작하세요.</span></div>}
     </div>
