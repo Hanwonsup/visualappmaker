@@ -5,16 +5,13 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
 DB_PATH = "/workspace/data/app.db"
 MODULE_DIR = Path("/workspace/runtime_modules")
-
 def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
-
 def init_db():
     with get_db() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS projects (
@@ -34,49 +31,42 @@ def init_db():
             graph = json.dumps({"nodes": [], "connections": []}, ensure_ascii=False)
             conn.execute("INSERT INTO projects (name, graph, updated_at) VALUES (?, ?, ?)",
                          ("사람 수 세기 실험", graph, datetime.now().isoformat(timespec="seconds")))
-
 def discover_modules():
     MODULE_DIR.mkdir(parents=True, exist_ok=True)
     modules = []
-    for dll_path in sorted(MODULE_DIR.glob("*.dll")):
-        manifest_path = dll_path.with_suffix(".json")
-        data = {"label": dll_path.stem, "icon": "✦", "subtitle": "감지된 C++ DLL", "entryPoint": "Process"}
+    for library_path in sorted(MODULE_DIR.glob("*.so")):
+        manifest_path = library_path.with_suffix(".json")
+        data = {"label": library_path.stem, "icon": "✦", "subtitle": "감지된 C++ 공유 라이브러리", "entryPoint": "Process"}
         if manifest_path.exists():
             try:
                 data.update(json.loads(manifest_path.read_text(encoding="utf-8")))
             except (OSError, json.JSONDecodeError):
-                data["subtitle"] = "설명 파일을 읽을 수 없는 C++ DLL"
+                data["subtitle"] = "설명 파일을 읽을 수 없는 C++ 공유 라이브러리"
         modules.append({
-            "type": "process", "label": str(data.get("label", dll_path.stem)),
-            "icon": str(data.get("icon", "✦")), "subtitle": str(data.get("subtitle", "감지된 C++ DLL")),
-            "dllName": dll_path.name, "entryPoint": str(data.get("entryPoint", "Process")),
+            "type": "process", "label": str(data.get("label", library_path.stem)),
+            "icon": str(data.get("icon", "✦")), "subtitle": str(data.get("subtitle", "감지된 C++ 공유 라이브러리")),
+            "dllName": library_path.name, "entryPoint": str(data.get("entryPoint", "Process")),
             "inputs": int(data.get("inputs", 1)), "outputs": int(data.get("outputs", 1)),
         })
     return modules
-
 class ProjectPayload(BaseModel):
     name: str
     graph: dict
 class RuntimeEventPayload(BaseModel):
     message: str
-
 app = FastAPI()
 init_db()
-
 @app.get("/api/health")
 def health():
     return {"ok": True}
-
 @app.get("/api/runtime-modules")
 def runtime_modules():
     return discover_modules()
-
 @app.get("/api/projects")
 def projects():
     with get_db() as conn:
         rows = conn.execute("SELECT id, name, graph, updated_at FROM projects ORDER BY id DESC").fetchall()
     return [{"id": row["id"], "name": row["name"], "graph": json.loads(row["graph"]), "updated_at": row["updated_at"]} for row in rows]
-
 @app.put("/api/projects/{project_id}")
 def save_project(project_id: int, payload: ProjectPayload):
     with get_db() as conn:
@@ -87,13 +77,11 @@ def save_project(project_id: int, payload: ProjectPayload):
         conn.execute("UPDATE projects SET name = ?, graph = ?, updated_at = ? WHERE id = ?",
                      (payload.name.strip() or "이름 없는 실험", json.dumps(payload.graph, ensure_ascii=False), updated, project_id))
     return {"ok": True, "updated_at": updated}
-
 @app.get("/api/projects/{project_id}/runtime-events")
 def runtime_events(project_id: int):
     with get_db() as conn:
         rows = conn.execute("SELECT message, created_at FROM runtime_events WHERE project_id = ? ORDER BY id DESC LIMIT 30", (project_id,)).fetchall()
     return [{"message": row["message"], "created_at": row["created_at"]} for row in reversed(rows)]
-
 @app.post("/api/projects/{project_id}/runtime-events")
 def create_runtime_event(project_id: int, payload: RuntimeEventPayload):
     message = payload.message.strip()
